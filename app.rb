@@ -11,16 +11,15 @@ App = lambda do |env|
     ws.on :open do |e|
       last_market_price = 0
       puts "websocket connection open"
-      timer = EM.add_periodic_timer(3) do
+      timer = EM.add_periodic_timer(10) do
         begin
-          uri = URI('http://demonancy.azurewebsites.net/index/nse')
-          data = Net::HTTP.get(uri)
-          json_data = JSON.parse(data)
-          if last_market_price != json_data["currentPrice"]
-            last_market_price = json_data["currentPrice"]
-            response = [{"data" => JSON.parse(data)  , "channel" => "test", "successful"=>true}].to_json
-            puts "sending response : #{response}"
-            ws.send(response)
+          alerts = AlertWatcher.new.check_for_alerts
+          if (alerts||[]).size > 0
+            alerts.each do |alert|
+              response = [{"data" => alert.to_json, "channel" => "alerts", "successful"=>true}].to_json
+              puts "sending response : #{response}"
+              ws.send(response)
+            end
           end
         rescue NoMethodError
           EM.cancel_timer(timer)
@@ -41,4 +40,27 @@ App = lambda do |env|
       [404, {}, '']
     end
   end
+end
+
+class AlertWatcher
+
+  def initialize(username="venkat")
+    @alert_list = "http://demonancy.azurewebsites.net/alert/#{username}/priceAlert/list"
+    @alert_check = "http://demonancy.azurewebsites.net/alert/#{username}/priceAlert?symbol=##SYMBOL##"
+  end
+
+  def check_for_alerts
+    triggered_alerts = []
+    alerts = JSON::parse(Net::HTTP.get(URI(@alert_list)))
+    alerts.collect do |stock|
+      puts "checking for stock: #{stock['symbol']}"
+      symbol = stock["symbol"]
+      alert_reponse = JSON::parse(Net::HTTP.get(URI(@alert_check.gsub("##SYMBOL##",symbol))))
+      if alert_reponse["status"] == "Pricing Alert Triggered"
+        triggered_alerts << { "symbol" => symbol, "price" => stock["triggerPrice"] }
+      end
+    end
+    triggered_alerts
+  end
+
 end
