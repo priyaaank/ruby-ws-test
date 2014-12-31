@@ -9,11 +9,11 @@ App = lambda do |env|
     ws = Faye::WebSocket.new(env)
 
     ws.on :open do |e|
-      last_market_price = 0
       puts "websocket connection open"
       timer = EM.add_periodic_timer(10) do
         begin
-          alerts = AlertWatcher.new.check_for_alerts
+          alerts = []
+          # alerts = AlertWatcher.new.check_for_alerts
           if (alerts||[]).size > 0
             alerts.each do |alert|
               response = [{"data" => alert, "channel" => "alerts", "successful"=>true}].to_json
