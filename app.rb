@@ -12,8 +12,7 @@ App = lambda do |env|
       puts "websocket connection open"
       timer = EM.add_periodic_timer(10) do
         begin
-          alerts = []
-          # alerts = AlertWatcher.new.check_for_alerts
+          alerts = AlertWatcher.new.check_for_alerts
           if (alerts||[]).size > 0
             alerts.each do |alert|
               response = [{"data" => alert, "channel" => "alerts", "successful"=>true}].to_json
@@ -53,14 +52,18 @@ class AlertWatcher
 
   def check_for_alerts
     triggered_alerts = []
-    alerts = JSON::parse(Net::HTTP.get(URI(@alert_list)))
-    alerts.collect do |stock|
-      puts "checking for stock: #{stock['symbol']}"
-      symbol = stock["symbol"]
-      alert_reponse = JSON::parse(Net::HTTP.get(URI(@alert_check.gsub("##SYMBOL##",symbol))))
-      if alert_reponse["status"] == "Pricing Alert Triggered"
-        triggered_alerts << { "symbol" => symbol, "price" => stock["triggerPrice"] }
+    begin
+      alerts = JSON::parse(Net::HTTP.get(URI(@alert_list)))
+      alerts.collect do |stock|
+        puts "checking for stock: #{stock['symbol']}"
+        symbol = stock["symbol"]
+        alert_reponse = JSON::parse(Net::HTTP.get(URI(@alert_check.gsub("##SYMBOL##",symbol))))
+        if alert_reponse["status"] == "Pricing Alert Triggered"
+          triggered_alerts << { "symbol" => symbol, "price" => stock["triggerPrice"] }
+        end
       end
+    rescue Timeout::Error, Errno::EINVAL, Errno::ECONNRESET, EOFError, Net::HTTPBadResponse, Net::HTTPHeaderSyntaxError, Net::ProtocolError => e
+      puts "Some network error occured!! #{e}"
     end
     triggered_alerts
   end
