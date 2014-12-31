@@ -16,7 +16,7 @@ App = lambda do |env|
           alerts = AlertWatcher.new.check_for_alerts
           if (alerts||[]).size > 0
             alerts.each do |alert|
-              response = [{"data" => alert.to_json, "channel" => "alerts", "successful"=>true}].to_json
+              response = [{"data" => alert, "channel" => "alerts", "successful"=>true}].to_json
               puts "sending response : #{response}"
               ws.send(response)
             end
