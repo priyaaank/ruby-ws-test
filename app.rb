@@ -11,7 +11,7 @@ App = lambda do |env|
     ws.on :open do |e|
       last_market_price = 0
       puts "websocket connection open"
-      timer = EM.add_periodic_timer(1) do
+      timer = EM.add_periodic_timer(3) do
         begin
           uri = URI('http://demonancy.azurewebsites.net/index/nse')
           data = Net::HTTP.get(uri)
