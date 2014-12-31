@@ -1,4 +1,5 @@
 require 'sinatra'
+require 'net/http'
 require 'faye/websocket'
 require 'json'
 Faye::WebSocket.load_adapter('thin')
@@ -8,10 +9,19 @@ App = lambda do |env|
     ws = Faye::WebSocket.new(env)
 
     ws.on :open do |e|
+      last_market_price = 0
       puts "websocket connection open"
       timer = EM.add_periodic_timer(1) do
         begin
-          ws.send(Time.now.to_s.to_json)
+          uri = URI('http://demonancy.azurewebsites.net/index/nse')
+          data = Net::HTTP.get(uri)
+          json_data = JSON.parse(data)
+          if last_market_price != json_data["currentPrice"]
+            last_market_price = json_data["currentPrice"]
+            response = [{"data" => JSON.parse(data)  , "channel" => "test", "successful"=>true}].to_json
+            puts "sending response : #{response}"
+            ws.send(response)
+          end
         rescue NoMethodError
           EM.cancel_timer(timer)
         end
