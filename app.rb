@@ -20,6 +20,7 @@ App = lambda do |env|
               ws.send(response)
             end
           else
+            puts "only pining!"
             response = [{"data" => {}, "channel" => "ping", "successful"=>true}].to_json
             ws.send(response)
           end
