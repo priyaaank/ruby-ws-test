@@ -20,8 +20,9 @@ App = lambda do |env|
               ws.send(response)
             end
           end
-        rescue Errno::ETIMEDOUT, NoMethodError
-          puts "errored out!"
+        rescue Errno::ETIMEDOUT
+          puts "TIMED OUT!!"
+        rescue NoMethodError
           EM.cancel_timer(timer)
         end
       end
