@@ -19,6 +19,9 @@ App = lambda do |env|
               puts "sending response : #{response}"
               ws.send(response)
             end
+          else
+            response = [{"data" => {}, "channel" => "ping", "successful"=>true}].to_json
+            ws.send(response)
           end
         rescue Errno::ETIMEDOUT
           puts "TIMED OUT!!"
