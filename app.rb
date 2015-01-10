@@ -14,6 +14,7 @@ module MarketTicker
       @clients = []
       Thread.new do
         EventMachine.run {
+          puts "xxx"
           proc = Proc.new do
             if (@clients || []).size > 0
               puts "onece"
