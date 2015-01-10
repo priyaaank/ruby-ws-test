@@ -2,50 +2,75 @@ require 'sinatra'
 require 'net/http'
 require 'faye/websocket'
 require 'json'
-Faye::WebSocket.load_adapter('thin')
+require 'eventmachine'
 
-App = lambda do |env|
-  if Faye::WebSocket.websocket?(env)
-    ws = Faye::WebSocket.new(env)
+module MarketTicker
+  class Backend
+    KEEPALIVE_TIME = 15 # in seconds
+    CHANNEL        = "alerts"
 
-    ws.on :open do |e|
-      puts "websocket connection open"
-      timer = EM.add_periodic_timer(10) do
-        begin
-          alerts = AlertWatcher.new.check_for_alerts
-          if (alerts||[]).size > 0
-            alerts.each do |alert|
-              response = [{"data" => alert, "channel" => "alerts", "successful"=>true}].to_json
-              puts "sending response : #{response}"
-              ws.send(response)
+    def initialize(app)
+      @app     = app
+      @clients = []
+      Thread.new do
+        EventMachine.run {
+          proc = Proc.new do
+            puts "onece"
+            begin
+              response = {}
+              alerts = AlertWatcher.new.check_for_alerts
+              if (alerts||[]).size > 0
+                alerts.each do |alert|
+                  response = [{"data" => alert, "channel" => CHANNEL, "successful" => true}].to_json
+                  puts "sending response : #{response}"
+                end
+              else
+                puts "only pining!"
+                response = [{"data" => {}, "channel" => "ping", "successful"=>true}].to_json
+              end
+              @clients.each {|ws| ws.send(response) }
+            rescue Errno::ETIMEDOUT
+              puts "TIMED OUT!!"
+            rescue NoMethodError
+              puts "Generic error!"
             end
-          else
-            puts "only pining!"
-            response = [{"data" => {}, "channel" => "ping", "successful"=>true}].to_json
-            ws.send(response)
           end
-        rescue Errno::ETIMEDOUT
-          puts "TIMED OUT!!"
-        rescue NoMethodError
-          EM.cancel_timer(timer)
-        end
+
+          EventMachine.add_periodic_timer 5, proc
+        }
       end
     end
 
-    ws.on :close do |event|
-      puts "websocket connection closed"
-      ws = nil
+    def call(env)
+      if Faye::WebSocket.websocket?(env)
+        ws = Faye::WebSocket.new(env, nil, {ping: KEEPALIVE_TIME })
+        ws.on :open do |event|
+          p [:open, ws.object_id]
+          @clients << ws
+        end
+
+        ws.on :message do |event|
+          puts "Socket sending response : #{event.data}"
+          ws.send(event.data)
+        end
+
+        ws.on :close do |event|
+          p [:close, ws.object_id, event.code, event.reason]
+          @clients.delete(ws)
+          ws = nil
+        end
+
+        # Return async Rack response
+        ws.rack_response
+
+      else
+        @app.call(env)
+      end
     end
 
-    ws.rack_response
-  else
-    if env["REQUEST_PATH"] == "/"
-      [200, {}, File.read('./index.html')]
-    else
-      [404, {}, '']
-    end
   end
 end
+
 
 class AlertWatcher
 
@@ -57,11 +82,13 @@ class AlertWatcher
   def check_for_alerts
     triggered_alerts = []
     begin
-      alerts = JSON::parse(Net::HTTP.get(URI(@alert_list)))
+      # alerts = JSON::parse(Net::HTTP.get(URI(@alert_list)))
+      alerts = [{"symbol" => "HINDALCO.NS"}]
       alerts.collect do |stock|
         puts "checking for stock: #{stock['symbol']}"
         symbol = stock["symbol"]
-        alert_reponse = JSON::parse(Net::HTTP.get(URI(@alert_check.gsub("##SYMBOL##",symbol))))
+        # alert_reponse = JSON::parse(Net::HTTP.get(URI(@alert_check.gsub("##SYMBOL##",symbol))))
+        alert_reponse = "bah"
         if alert_reponse["status"] == "Pricing Alert Triggered"
           triggered_alerts << { "symbol" => symbol, "price" => stock["triggerPrice"] }
         end

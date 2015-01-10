@@ -42,6 +42,7 @@ PLATFORMS
 
 DEPENDENCIES
   em-http-request
+  eventmachine
   faye-websocket
   json
   sinatra
