@@ -38,7 +38,6 @@ module MarketTicker
             end
           end
 
-
           EventMachine.add_periodic_timer 5, proc
         }
       end
