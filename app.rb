@@ -15,26 +15,29 @@ module MarketTicker
       Thread.new do
         EventMachine.run {
           proc = Proc.new do
-            puts "onece"
-            begin
-              response = {}
-              alerts = AlertWatcher.new.check_for_alerts
-              if (alerts||[]).size > 0
-                alerts.each do |alert|
-                  response = [{"data" => alert, "channel" => CHANNEL, "successful" => true}].to_json
-                  puts "sending response : #{response}"
+            if (@clients || []).size > 0
+              puts "onece"
+              begin
+                response = {}
+                alerts = AlertWatcher.new.check_for_alerts
+                if (alerts||[]).size > 0
+                  alerts.each do |alert|
+                    response = [{"data" => alert, "channel" => CHANNEL, "successful" => true}].to_json
+                    puts "sending response : #{response}"
+                  end
+                else
+                  puts "only pining!"
+                  response = [{"data" => {}, "channel" => "ping", "successful"=>true}].to_json
                 end
-              else
-                puts "only pining!"
-                response = [{"data" => {}, "channel" => "ping", "successful"=>true}].to_json
+                @clients.each {|ws| ws.send(response) }
+              rescue Errno::ETIMEDOUT
+                puts "TIMED OUT!!"
+              rescue NoMethodError
+                puts "Generic error!"
               end
-              @clients.each {|ws| ws.send(response) }
-            rescue Errno::ETIMEDOUT
-              puts "TIMED OUT!!"
-            rescue NoMethodError
-              puts "Generic error!"
             end
           end
+
 
           EventMachine.add_periodic_timer 5, proc
         }
