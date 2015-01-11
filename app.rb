@@ -85,13 +85,13 @@ class AlertWatcher
   def check_for_alerts
     triggered_alerts = []
     begin
-      # alerts = JSON::parse(Net::HTTP.get(URI(@alert_list)))
-      alerts = [{"symbol" => "HINDALCO.NS"}]
+      alerts = JSON::parse(Net::HTTP.get(URI(@alert_list)))
+      # alerts = [{"symbol" => "HINDALCO.NS"}]
       alerts.collect do |stock|
         puts "checking for stock: #{stock['symbol']}"
         symbol = stock["symbol"]
-        # alert_reponse = JSON::parse(Net::HTTP.get(URI(@alert_check.gsub("##SYMBOL##",symbol))))
-        alert_reponse = "bah"
+        alert_reponse = JSON::parse(Net::HTTP.get(URI(@alert_check.gsub("##SYMBOL##",symbol))))
+        # alert_reponse = "bah"
         if alert_reponse["status"] == "Pricing Alert Triggered"
           triggered_alerts << { "symbol" => symbol, "price" => stock["triggerPrice"] }
         end
